@@ -70,13 +70,29 @@ Edit `.env`:
 AT_USERNAME=your_username_here
 AT_API_KEY=your_api_key_here
 AT_ENV=sandbox
+# Optional: SMS sender configuration
+# Option 1: Numeric shortcode (for two-way SMS, users can reply)
+#   Example: AT_SHORTCODE=384
+# Option 2: Alphanumeric sender ID (for one-way branded SMS)
+#   Example: AT_SENDER_ID=PriceChekRider
+# If neither set, will use shortcode from incoming SMS or default from dashboard
+AT_SHORTCODE=384
+# AT_SENDER_ID=PriceChekRider  # Uncomment to use alphanumeric sender ID instead
 ```
 
 ### 4. Run the Application
 
+**Option A: Using the startup script (recommended):**
+```powershell
+.\start_server.ps1
+```
+
+**Option B: Manual command:**
 ```bash
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
+
+**Important:** Use `app.main:app` (not `main:app`) because `main.py` is inside the `app/` folder.
 
 The API will be available at:
 - **API**: http://localhost:8000
@@ -87,7 +103,7 @@ The API will be available at:
 
 ### USSD Endpoints
 - **POST** `/ussd` - USSD callback with **JSON** body (for Swagger / testing)
-- **POST** `/ussd/at` - USSD callback for **Africa's Talking** (form data in, plain text out). **Set this URL in the Africa's Talking dashboard** as your USSD callback. AT sends `sessionId`, `serviceCode`, `phoneNumber`, `text` as form fields; response must be plain text starting with CON or END (see `docs/africastalking_ussd_flask_example.py`).
+- **POST** `/ussd/at` - USSD callback for **Africa's Talking** (form data in, plain text out). **Set this URL in the Africa's Talking dashboard** as your USSD callback. AT sends `sessionId`, `serviceCode`, `phoneNumber`, `text` as form fields; response must be plain text starting with CON or END (see `docs/africastalking_ussd_flask_example.py` for a minimal FastAPI reference).
 
 ### SMS Endpoint
 - **POST** `/incoming-sms` - Handle incoming SMS from customers
@@ -179,7 +195,8 @@ Test USSD and SMS **without a real phone** using Africa's Talking **sandbox** an
 2. **Simulator:** All testing happens at https://simulator.africastalking.com:1517/ — no handset needed.
 3. **ngrok:** Expose your app so AT can call your callbacks; set USSD callback to `/ussd/at` and SMS callback to `/incoming-sms`.
 
-**Step-by-step:** **[docs/SANDBOX_SIMULATOR.md](docs/SANDBOX_SIMULATOR.md)** — sandbox setup, simulator usage, callback URLs, and how they map to this codebase.  
+**User flow (presentation):** [docs/USER_FLOW_PRESENTATION.md](docs/USER_FLOW_PRESENTATION.md) — end-to-end user journey, screens, and demo talking points.  
+**Step-by-step:** [docs/SANDBOX_SIMULATOR.md](docs/SANDBOX_SIMULATOR.md) — sandbox setup, simulator usage, callback URLs.  
 **ngrok only:** [docs/NGROK.md](docs/NGROK.md).
 
 ## Deployment

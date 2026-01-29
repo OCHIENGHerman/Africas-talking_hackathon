@@ -8,14 +8,34 @@ ngrok exposes your local server so **Africa's Talking** can reach your USSD and 
 
 ## 1. Install ngrok
 
+**If `ngrok` is not recognized** (e.g. winget/choco not available), use the manual install below.
+
+### Option A: Manual install (Windows, no winget/choco)
+
+1. **Download** the Windows ZIP from: https://ngrok.com/download  
+   - Or direct: https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip  
+2. **Extract** the ZIP (e.g. to `C:\ngrok` or your project folder). You should get `ngrok.exe`.  
+3. **Use ngrok** either by:
+   - **Adding to PATH:** Add the folder containing `ngrok.exe` to your system/user PATH, **or**
+   - **Running by full path:**  
+     `C:\ngrok\ngrok.exe http 8000`  
+     (and for auth: `C:\ngrok\ngrok.exe config add-authtoken YOUR_AUTH_TOKEN`).
+
+### Option B: Package managers (if available)
+
 - **Windows (winget):** `winget install ngrok.ngrok`
 - **Windows (choco):** `choco install ngrok`
-- **Download:** https://ngrok.com/download  
-- **Sign up** at https://ngrok.com (free tier is enough) and get your auth token from the dashboard.
+
+### After install: authenticate (one-time)
+
+**Sign up** at https://ngrok.com (free tier is enough) and copy your auth token from the dashboard. Then run:
 
 ```powershell
-# After install, authenticate (one-time)
+# If ngrok is on PATH:
 ngrok config add-authtoken YOUR_AUTH_TOKEN
+
+# If you use full path (e.g. C:\ngrok\ngrok.exe):
+& "C:\ngrok\ngrok.exe" config add-authtoken YOUR_AUTH_TOKEN
 ```
 
 ## 2. Start your app and ngrok

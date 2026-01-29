@@ -4,13 +4,17 @@ Initializes the application, creates database tables, and includes routers.
 """
 import json
 import logging
+from urllib.parse import parse_qs, unquote_plus
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse, JSONResponse
 from sqlalchemy import text
-from app.database import Base, engine
+from app.database import Base, engine, SessionLocal
 from app.routers import ussd, sms, admin
+from app.routers.ussd import _ussd_logic
+from app.routers.sms import handle_incoming_sms
+from app.routers.sms import SMSRequest as SMSRequestModel
 
 # Configure logging
 logging.basicConfig(
@@ -113,16 +117,92 @@ async def root():
             <li><a href="/redoc">ReDoc API documentation</a></li>
             <li><a href="/health">Health check (JSON)</a></li>
         </ul>
-        <h2>Endpoints</h2>
+        <h2>Africa's Talking Callback Endpoints</h2>
         <ul>
-            <li><code>POST /ussd</code> — USSD callback</li>
-            <li><code>POST /incoming-sms</code> — SMS callback</li>
+            <li><code>POST /ussd/at</code> — <strong>USSD callback</strong> (set in AT dashboard)</li>
+            <li><code>POST /incoming-sms</code> — <strong>SMS callback</strong> (set in AT dashboard)</li>
+        </ul>
+        <h2>Admin Endpoints</h2>
+        <ul>
             <li><code>GET /admin/users</code> — List users</li>
             <li><code>GET /admin/orders</code> — List orders</li>
         </ul>
     </body>
     </html>
     """
+
+
+@app.post(
+    "/",
+    include_in_schema=False,
+)
+async def root_post(
+    request: Request,
+    sessionId: str | None = Form(None),
+    serviceCode: str | None = Form(None),
+    phoneNumber: str | None = Form(None),
+    text: str = Form(""),
+    input: str = Form(""),  # Africa's Talking USSD: user input as 'input' field
+    from_number: str | None = Form(None, alias="from"),  # Africa's Talking SMS: sender
+    to_dest: str | None = Form(None, alias="to"),        # Africa's Talking SMS: shortcode
+    date: str = Form(""),  # Africa's Talking SMS: timestamp
+    linkId: str | None = Form(None),
+):
+    """
+    POST to / : handle both USSD and SMS callbacks when Africa's Talking points at root.
+    USSD: form has phoneNumber, sessionId, serviceCode, text/input.
+    SMS: form has from, to, text, date (no phoneNumber/sessionId).
+    """
+    content_type = request.headers.get("content-type", "")
+
+    if "application/x-www-form-urlencoded" not in content_type:
+        logger.warning(f"POST to / from {request.client.host if request.client else 'unknown'}, Content-Type: {content_type}")
+        return PlainTextResponse(content="ERROR: Use /ussd/at for USSD and /incoming-sms for SMS.", status_code=400)
+
+    # 1) USSD: Africa's Talking sends phoneNumber, sessionId, serviceCode, text/input
+    if phoneNumber and sessionId:
+        user_input = (input or text or "").strip()
+        logger.info(
+            f"POST / USSD: phone={phoneNumber[:10]}..., "
+            f"session={sessionId[:20]}..., serviceCode={serviceCode}, "
+            f"user_input='{user_input}' (from input='{input}', text='{text}')"
+        )
+        db = SessionLocal()
+        try:
+            response_text = _ussd_logic(phoneNumber, user_input, db)
+            return PlainTextResponse(content=response_text)
+        finally:
+            db.close()
+
+    # 2) SMS: Africa's Talking sends from, to, text, date (no phoneNumber/sessionId)
+    if from_number:
+        logger.info(
+            f"POST / SMS callback: from={from_number[:10]}..., to={to_dest}, text='{text[:50] if text else ''}'"
+        )
+        sms_request = SMSRequestModel(
+            from_=from_number,
+            to=to_dest or "",
+            text=text or "",
+            date=date or "",
+            linkId=linkId,
+        )
+        db = SessionLocal()
+        try:
+            result = await handle_incoming_sms(sms_request, db)
+            return JSONResponse(content=result.model_dump(), status_code=200)
+        finally:
+            db.close()
+
+    # 3) Unknown form (e.g. health check or wrong format)
+    logger.warning(
+        f"POST to / from {request.client.host if request.client else 'unknown'}, "
+        f"phoneNumber={phoneNumber}, sessionId={sessionId}, from_number={from_number}, "
+        f"not recognized as USSD or SMS"
+    )
+    return PlainTextResponse(
+        content="ERROR: Use /ussd/at for USSD and /incoming-sms for SMS.",
+        status_code=400,
+    )
 
 
 @app.get(

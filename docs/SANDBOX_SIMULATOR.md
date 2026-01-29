@@ -29,6 +29,7 @@ This guide follows **Africa's Talking** official sandbox and simulator setup and
 
 1. Sign up (free): **https://account.africastalking.com/apps/sandbox**
 2. Log in and stay in the **sandbox** app (not live).
+3. **API key:** Go to **Settings** in the sandbox dashboard and generate an API key. Use it as `AT_API_KEY` in `.env`. Our app uses username **`sandbox`** for the API when `AT_ENV` is sandbox/techtribe (your `AT_USERNAME` in `.env` can be any label).
 
 ### 2.2 Create resources and set callbacks
 
@@ -97,10 +98,11 @@ Details: [NGROK.md](NGROK.md).
    - First screen: `Welcome to PriceChekRider! 1. Compare Prices 2. Order Delivery 3. Help 4. Exit`
    - Then follow the flow (e.g. `1` → city code → `1*NAI` → END + SMS).
 
-5. Watch:
-   - **Simulator:** USSD screens.
-   - **Uvicorn terminal:** Logs for each request.
-   - **ngrok terminal:** Incoming POSTs to `/ussd/at`.
+5. **Where to see the SMS after USSD:** In sandbox, SMS is delivered to the **simulator only**. After you get "We are sending you an SMS":
+   - In the simulator, open the **SMS** tab (or the inbox for your number).
+   - The follow-up SMS ("Reply with LOCATION-FORMAT...") appears there. It does **not** go to a real handset in sandbox.
+
+6. Watch the **Simulator** (USSD and SMS tabs), **Uvicorn** logs, and **ngrok** for requests.
 
 ### 4.3 Test SMS
 
@@ -165,4 +167,4 @@ Details: [NGROK.md](NGROK.md).
 - Simulator: **https://simulator.africastalking.com:1517/**  
 - Sandbox dashboard: **https://account.africastalking.com/apps/sandbox**  
 - Project ngrok steps: [NGROK.md](NGROK.md)  
-- Flask-style USSD example: [africastalking_ussd_flask_example.py](africastalking_ussd_flask_example.py)  
+- Minimal USSD reference: [africastalking_ussd_flask_example.py](africastalking_ussd_flask_example.py) (FastAPI)  

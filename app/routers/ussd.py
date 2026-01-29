@@ -93,10 +93,13 @@ def _ussd_logic(phone_number: str, text: str, db: Session) -> str:
                 "Example: NAI-Kileleshwa or NAI-Kasarani"
             )
             try:
-                at_service.send_sms(phone_number, sms_message)
-                logger.info(f"SMS sent to {phone_number} after city code")
+                # Pass shortcode so SMS is from your shortcode (required for two-way)
+                from app.config import settings
+                sender = settings.sms_sender
+                at_service.send_sms(phone_number, sms_message, sender_id=sender)
+                logger.info(f"SMS sent to {phone_number} after city code (from {sender})")
             except Exception as e:
-                logger.error(f"Failed to send SMS to {phone_number}: {e}")
+                logger.error(f"Failed to send SMS to {phone_number}: {e}", exc_info=True)
             return (
                 "END We have noted your city. "
                 "We are sending you an SMS. Please reply with your location (e.g. NAI-Kileleshwa)."
@@ -141,7 +144,7 @@ async def handle_ussd_json(request: USSDRequest, db: Session = Depends(get_db)):
     return USSDResponse(response=response_text)
 
 
-# --- Africa's Talking: form data in, plain text out (like Flask example in docs/africastalking_ussd_flask_example.py) ---
+# --- Africa's Talking: form data in, plain text out (see docs/africastalking_ussd_flask_example.py) ---
 
 @router.post(
     "/at",
@@ -159,7 +162,18 @@ async def handle_ussd_at(
     serviceCode: str = Form(...),
     phoneNumber: str = Form(...),
     text: str = Form(""),
+    input: str = Form(""),  # Africa's Talking may send user input as 'input' field
 ):
-    """Form body: sessionId, serviceCode, phoneNumber, text (same as Flask request.values.get)."""
-    response_text = _ussd_logic(phoneNumber, (text or "").strip(), db)
+    """
+    Form body: sessionId, serviceCode, phoneNumber, text/input.
+    Africa's Talking may send user input in either 'text' or 'input' field.
+    """
+    # Use 'input' if present and non-empty, otherwise fall back to 'text'
+    user_input = (input or text or "").strip()
+    logger.info(
+        f"POST /ussd/at: phone={phoneNumber[:10]}..., "
+        f"session={sessionId[:20]}..., serviceCode={serviceCode}, "
+        f"user_input='{user_input}' (from input='{input}', text='{text}')"
+    )
+    response_text = _ussd_logic(phoneNumber, user_input, db)
     return PlainTextResponse(content=response_text)

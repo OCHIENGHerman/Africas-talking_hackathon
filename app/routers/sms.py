@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.database import get_db
 from app.models import User, Order
 from app.services.scraper import MockScraper
@@ -220,9 +221,11 @@ async def handle_incoming_sms(request: SMSRequest, db: Session = Depends(get_db)
                     db.commit()
         
         # Send response SMS (return 200 even if send fails so AT does not retry; log failure)
+        # Use shortcode so user can reply (two-way): incoming request.to or AT_SHORTCODE
+        reply_from = request.to or settings.AT_SHORTCODE or settings.sms_sender
         try:
-            at_service.send_sms(phone_number, response_message)
-            logger.info(f"Response SMS sent to {phone_number}")
+            at_service.send_sms(phone_number, response_message, sender_id=reply_from)
+            logger.info(f"Response SMS sent to {phone_number} from shortcode {reply_from or 'default'}")
             return SMSSuccessResponse(status="success", message="SMS sent successfully")
         except Exception as e:
             logger.error(f"Failed to send response SMS: {e}")
